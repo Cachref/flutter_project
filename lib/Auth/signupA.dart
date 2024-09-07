@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:app1/Auth/login.dart';
 import 'package:app1/utils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http_parser/http_parser.dart';
+
 class Signupa extends StatefulWidget {
   Signupa({Key? key}) : super(key: key);
 
@@ -25,19 +30,84 @@ class _SignupaState extends State<Signupa> {
       _image = img;
     });
   }
-  Future<void> postaccount() async {
-    if(fname.text == "" || lname.text == "" || email.text == "" || pwd.text == ""){
-      try{
-        String uri = "http://localhost/flutterapp1/adminacc.php";
-        var res= await http.post(Uri.parse(uri), body: {});
+
+  Future<bool> getaccount() async {
+    try {
+      // Add email as a query parameter
+      String uri = "http://10.0.2.2/flutterapp1/admin.php?email=${email.text}";
+      var res = await http.get(Uri.parse(uri));
+      var response = jsonDecode(res.body);
+
+      if (response["exists"] == true) {
+        print("Email already exists");
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Email already exists. Please use a different email."),
+        ));
+        return true;
+      } else {
+        return false;
       }
-      catch(e){}
-    }else{
+    } catch (e) {
+      print(e);
+      return false;
+    }
+  }
+
+  Future<void> postaccount() async {
+    if (fname.text != "" &&
+        lname.text != "" &&
+        email.text != "" &&
+        pwd.text != "") {
+      try {
+        String uri = "http://10.0.2.2/flutterapp1/admin.php";
+
+        // Prepare multipart request
+        var request = http.MultipartRequest('POST', Uri.parse(uri));
+
+        // Add text fields
+        request.fields['fname'] = fname.text;
+        request.fields['lname'] = lname.text;
+        request.fields['email'] = email.text;
+        request.fields['pwd'] = pwd.text;
+
+        // If image is selected, send it, otherwise send default user.png
+        if (_image != null) {
+          request.files.add(http.MultipartFile.fromBytes(
+            'image',
+            _image!,
+            filename: 'profile_image.png',
+            contentType: MediaType('image', 'png'),
+          ));
+        } else {
+          // Send a default image (you need to include this in your assets folder)
+          ByteData data = await rootBundle.load('images/user.png');
+          List<int> bytes = data.buffer.asUint8List();
+          request.files.add(http.MultipartFile.fromBytes(
+            'image',
+            bytes,
+            filename: 'user.png',
+            contentType: MediaType('image', 'png'),
+          ));
+        }
+
+        // Send the request
+        var res = await request.send();
+        var response = await http.Response.fromStream(res);
+        var jsonResponse = jsonDecode(response.body);
+
+        if (jsonResponse["success"] == true) {
+          print("Admin added");
+        } else {
+          print("Some issues occurred");
+        }
+      } catch (e) {
+        print(e);
+      }
+    } else {
       print("Please fill all fields");
     }
-    //return this.http.post<any>("http://localhost/flutterapp1/adminacc/", data);
-    
-    },
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -182,12 +252,15 @@ class _SignupaState extends State<Signupa> {
                         Colors.white,
                       ),
                     ),
-                    onPressed: () {
-                      postaccount();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => Login()),
-                      );
+                    onPressed: () async {
+                      bool accountExists = await getaccount();
+                      if (!accountExists) {
+                        postaccount();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => Login()),
+                        );
+                      }
                     },
                     child: const Text(
                       'Sign Up',

@@ -1,11 +1,62 @@
-import 'package:flutter/material.dart';
+import 'package:app1/Auth/menuA.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:app1/Auth/login.dart';
+import 'package:app1/Auth/menuS.dart';
 import 'package:app1/Auth/type_actor.dart';
+import 'package:app1/utils.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http_parser/http_parser.dart';
 
 class Login extends StatelessWidget {
   const Login({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    TextEditingController email = TextEditingController();
+    TextEditingController pwd = TextEditingController();
+    Future<bool> getadminaccount() async {
+      try {
+        // Add email as a query parameter
+        String uri =
+            "http://10.0.2.2/flutterapp1/admin.php?email=${email.text}&pwd=${pwd.text}";
+        var res = await http.get(Uri.parse(uri));
+        var response = jsonDecode(res.body);
+
+        if (response["exists"] == true) {
+          return true;
+        } else {
+          return false;
+        }
+      } catch (e) {
+        print(e);
+        return false;
+      }
+    }
+
+    Future<bool> getstudentaccount() async {
+      try {
+        // Add email as a query parameter
+        String uri =
+            "http://10.0.2.2/flutterapp1/student.php?email=${email.text}&pwd=${pwd.text}";
+        var res = await http.get(Uri.parse(uri));
+        var response = jsonDecode(res.body);
+
+        if (response["exists"] == true) {
+          return true;
+        } else {
+          return false;
+        }
+      } catch (e) {
+        print(e);
+        return false;
+      }
+    }
+
     return WillPopScope(
       onWillPop: () async =>
           false, // This will prevent the back button from working
@@ -46,6 +97,7 @@ class Login extends StatelessWidget {
                   Container(
                     margin: const EdgeInsets.all(16.0),
                     child: TextFormField(
+                      controller: email,
                       decoration: const InputDecoration(
                         hintText: 'Enter Email here',
                         hintStyle: TextStyle(
@@ -63,6 +115,7 @@ class Login extends StatelessWidget {
                   Container(
                     margin: const EdgeInsets.all(16.0),
                     child: TextFormField(
+                      controller: pwd,
                       decoration: const InputDecoration(
                         hintText: 'Enter Password here',
                         hintStyle: TextStyle(
@@ -93,8 +146,33 @@ class Login extends StatelessWidget {
                           Colors.white,
                         ),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         // Add login functionality here
+                        bool adminaccountExists = await getadminaccount();
+                        bool studentaccountExists = await getstudentaccount();
+
+                        if (adminaccountExists) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => Menua()),
+                          );
+                        } else if (studentaccountExists) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => Menus()),
+                          );
+                        } else {
+                          Fluttertoast.showToast(
+                            msg:
+                                "Make sure you enter a valid account email and password",
+                            toastLength: Toast.LENGTH_SHORT,
+                            gravity: ToastGravity.CENTER,
+                            timeInSecForIosWeb: 1,
+                            backgroundColor: Colors.black,
+                            textColor: Colors.white,
+                            fontSize: 16.0,
+                          );
+                        }
                       },
                       child: const Text(
                         'Login',
